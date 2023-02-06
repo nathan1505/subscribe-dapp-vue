@@ -23,31 +23,20 @@
                             <small class="text-muted align-self-end mb-2 ml-1">ETH</small>
                           </div>
                         </div>
-                          <div class="form-group">
-                            <label for="deposit">Deposit</label>
-                            <div class="row">
-                              <div class="input-group col-10">
-                                <input type="number" id="deposit" 
-                                  :disabled="loading"
-                                  v-model="form.depositAmount" class="form-control"/>
-                                  <div class="input-group-append">
-                                    <span class="input-group-text" id="basic-addon2">ETH</span>
-                                  </div>
-                              </div>
-                              <button class="btn btn-success col-2 btn-sm"
-                               :disabled="loading"
-                               v-on:click.prevent="deposit">Deposit</button>
-                            </div>
-                          </div><!--/.form-group-->  
 
                           <div class="form-group">
-                            <label for="withdraw">Withdraw</label>
+                            <label for="withdraw">Withdraw (Only Signer can withdraw)</label>
                             <div class="row">
+                              <div class="input-group col-10 mb-2">
+                                <input type="string" id="withdrawaddress" 
+                                :disabled="loading"
+                                v-model="form.withdrawalAddress" class="form-control"/>
+                              </div>
                               <div class="input-group col-10">
                                 <input type="number" id="withdraw" 
                                 :disabled="loading"
                                 v-model="form.withdrawalAmount" class="form-control"/>
-                                 <div class="input-group-append">
+                                  <div class="input-group-append">
                                     <span class="input-group-text" id="basic-addon2">ETH</span>
                                   </div>
                               </div>
@@ -55,10 +44,33 @@
                                :disabled="loading"
                                v-on:click.prevent="withdraw">Withdraw</button>
                             </div>
-                          </div><!--/.form-group-->  
+                          </div><!--/.form-group-->
+
+                        <label for="withdraw">Subscribe!</label>
+                          <div class="form-group">
+                            <div class="card-body">
+                              <button class="btn btn-success btn-bg mb-2 ml-1"
+                                :disabled="loading"
+                                      v-on:click.prevent="subscribe(0.05)">1 Month/0.05 ETH</button>
+                              <button class="btn btn-success btn-bg mb-2 ml-1"
+                                :disabled="loading"
+                                      v-on:click.prevent="subscribe(0.1)">3 Month/0.1 ETH</button>
+                              <button class="btn btn-success btn-bg mb-2 ml-1"
+                                :disabled="loading"
+                                      v-on:click.prevent="subscribe(0.15)">9 Month/0.15 ETH</button>
+                              <button class="btn btn-success btn-bg mb-2 ml-1"
+                                :disabled="loading"
+                                      v-on:click.prevent="subscribe(0.25)">1 Year/0.25 ETH</button>
+                            </div>
+                          </div>  
                         </div><!--/.flex-col-->
                     </div><!--/.card-body-->
                 </div><!--/.card-->
+
+                <div class="card">
+
+                </div>
+
             </div>
       </div>
   </div>
@@ -66,7 +78,7 @@
 
 <script>
 import {ethers} from "ethers";
-import ContractAbi from '../artifacts/contracts/Bank2U.sol/Bank2U.json';
+import ContractAbi from '../NewContract/Contract.json';
 export default {
   name: 'App',
   components: {
@@ -81,7 +93,8 @@ export default {
       currentBalance: 0,
       form: {
         depositAmount: 0,
-        withdrawalAmount: 0
+        withdrawalAddress: "",
+        withdrawalAmount: 0,
       }
     }
   },
@@ -94,7 +107,7 @@ export default {
       const provider = new ethers.providers.Web3Provider(ethereum)
       const signer = provider.getSigner()
       const contract = new ethers.Contract(
-        '0x5FbDB2315678afecb367f032d93F642f64180aa3', // change this when deploy new contract
+        '0x36E7f1fE02DDD8A77a5aE99d1F408Bf5a97238Bb', // change this when deploy new contract
         ContractAbi.abi,
         signer
       )
@@ -133,13 +146,13 @@ export default {
       }
     },
 
-    // deposit ether to bank
-    async deposit () {
+    // subscribe
+    async subscribe (subAmount) {
       try {
         this.loading = true
         const options = {
           from: this.currentAccount,
-          value: ethers.utils.parseEther(parseFloat(this.form.depositAmount).toString())
+          value: ethers.utils.parseEther(parseFloat(subAmount).toString())
         }
 
         // call contract deposit method
@@ -147,7 +160,7 @@ export default {
         let txnResults = await txn.wait() // await for transaction to be mined
         console.log(txnResults)
 
-        alert(`Successfully deposited ${this.form.depositAmount} ETH to bank`)
+        alert(`Successfully subscribed ${subAmount} ETH to bank`)
         this.checkBalance() // initiate check balance
 
         this.loading = false
@@ -156,22 +169,25 @@ export default {
       } catch (e) {
         console.log(e)
         this.loading = false
-        alert('Failed to deposit')
+        alert('Failed to subscribe')
       }
     },
 
     // withdraw ether from bank
     async withdraw () {
       try {
+        /*
         const options = {
-          from: this.currentAccount
+          from: this.currentAccount,
         }
+        */
         this.loading = true
+        console.log(this.withdrawalAddress)
 
         // call contract withdraw method
         let txn = await this.contract.withdraw(
-           ethers.utils.parseEther(parseFloat(this.form.withdrawalAmount).toString()),
-          {...options}
+          this.form.withdrawalAddress,
+          ethers.utils.parseEther(parseFloat(this.form.withdrawalAmount).toString())
         )
         let txnResults = await txn.wait() // await for transaction to be mined
         console.log(txnResults)
@@ -193,9 +209,7 @@ export default {
         this.loading = true
 
         // call contract balance method
-        let balance = await this.contract.balance({
-            from: this.currentAccount
-        })
+        let balance = await this.contract.getContractBalance(this.currentAccount)
 
         // convert wei to ether
         this.currentBalance = ethers.utils.formatEther(balance) // 1000000000000 = 1 ETH
